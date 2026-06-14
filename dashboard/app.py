@@ -19,7 +19,7 @@ st.set_page_config(page_title="Quant Trading Dashboard", page_icon="📈", layou
 TICKERS = [a.ticker for a in UNIVERSE]
 TODAY = pd.Timestamp.today().normalize()
 
-PRESET_OPTIONS = [
+PERIOD_OPTIONS = [
     "Past 1 Month",
     "Past 3 Months",
     "Past 6 Months",
@@ -28,7 +28,7 @@ PRESET_OPTIONS = [
     "Past 3 Years",
     "Custom range",
 ]
-PRESET_MONTHS = {
+PERIOD_MONTHS = {
     "Past 1 Month": 1,
     "Past 3 Months": 3,
     "Past 6 Months": 6,
@@ -39,31 +39,34 @@ PRESET_MONTHS = {
 
 
 # ──────────────────────────────────────────────
-# Top bar — title / ticker / period
+# Header
 # ──────────────────────────────────────────────
-col_title, col_ticker, col_period, col_custom = st.columns([2, 1, 1, 2])
+col_title, col_stock, col_period = st.columns([3, 1, 1])
 
 with col_title:
-    st.markdown("### 📈 Quant Trading Dashboard")
+    st.markdown("## Quant Trading Dashboard")
 
-with col_ticker:
-    ticker = st.selectbox("Ticker", TICKERS)
+with col_stock:
+    ticker = st.selectbox("종목 (Stock)", TICKERS)
 
 with col_period:
-    selected = st.selectbox("Period", PRESET_OPTIONS, index=3)
+    period = st.selectbox("기간 (Period)", PERIOD_OPTIONS, index=3)
 
-# 날짜 계산
-if selected != "Custom range":
-    start_date = (TODAY - pd.DateOffset(months=PRESET_MONTHS[selected])).date()
-    end_date = TODAY.date()
-    with col_custom:
-        st.caption("&nbsp;")
-        st.caption(f"{start_date} ~ {end_date}")
+# 기간 계산
+if period == "Custom range":
+    date_range = st.date_input(
+        "날짜 선택 (시작일 → 종료일)",
+        value=(TODAY - pd.DateOffset(months=12)).date(),
+        help="시작일을 먼저 클릭하고, 종료일을 클릭하세요.",
+    )
+    if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
+        start_date, end_date = date_range[0], date_range[1]
+    else:
+        start_date = date_range if not isinstance(date_range, (list, tuple)) else date_range[0]
+        end_date = TODAY.date()
 else:
-    with col_custom:
-        c1, c2 = st.columns(2)
-        start_date = c1.date_input("Start", value=(TODAY - pd.DateOffset(months=12)).date())
-        end_date = c2.date_input("End", value=TODAY.date())
+    start_date = (TODAY - pd.DateOffset(months=PERIOD_MONTHS[period])).date()
+    end_date = TODAY.date()
 
 total_days = max((pd.Timestamp(end_date) - pd.Timestamp(start_date)).days, 1)
 
@@ -75,10 +78,10 @@ st.divider()
 # ──────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs(
     [
-        "📊  Signals & Portfolio",
-        "🔄  Regime Backtest",
-        "📈  Walk-Forward",
-        "🗄️  Data",
+        "Signals & Portfolio",
+        "Regime Backtest",
+        "Walk-Forward",
+        "Data",
     ]
 )
 
@@ -87,6 +90,12 @@ tab1, tab2, tab3, tab4 = st.tabs(
 # Tab 1 · Signals & Portfolio
 # ──────────────────────────────────────────────
 with tab1:
+    st.caption(
+        "SMA 기반 매수/매도 신호와 페이퍼 트레이딩 포트폴리오 현황을 확인합니다. "
+        "신호는 매일 장 마감 후 자동으로 갱신됩니다."
+    )
+    st.divider()
+
     st.subheader("Current Signals")
     sma_period = st.selectbox("SMA Period", [20, 50, 100, 200], index=3)
     signals = current_signals(sma_period)
@@ -104,19 +113,22 @@ with tab1:
 
     trades_df = load_trades()
     if not trades_df.empty:
-        st.subheader("Trade Log (last 20)")
+        st.subheader("Trade Log")
         st.dataframe(trades_df.tail(20), use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────
-# Tab 2 · Regime-Adaptive Backtest
+# Tab 2 · Regime Backtest
 # ──────────────────────────────────────────────
 with tab2:
-    st.subheader(f"Regime-Adaptive Backtest  ·  {ticker}  ·  {start_date} ~ {end_date}")
-    st.caption("BULL → Volatility Breakout  /  SIDEWAYS_UP → Grid  /  BEAR & SIDEWAYS_DOWN → Cash")
+    st.caption(
+        f"ADX + SMA200으로 시장 레짐(BULL / SIDEWAYS / BEAR)을 자동 감지하고, "
+        f"레짐별 전략을 적용한 백테스트 결과를 보여줍니다.  "
+        f"대상: {ticker}  /  기간: {start_date} ~ {end_date}"
+    )
     st.divider()
 
-    col_l, col_r = st.columns([1, 3], gap="large")
+    col_l, col_r = st.columns([1, 3])
 
     with col_l:
         with st.container(border=True):
@@ -124,8 +136,8 @@ with tab2:
             k = st.slider("k  (Volatility Breakout)", 0.3, 0.7, 0.5, 0.1)
             adx_bull = st.slider("ADX Bull threshold", 15, 40, 25, 5)
             adx_side = st.slider("ADX Side threshold", 10, 35, 20, 5)
-            st.caption(f"BULL if ADX > {adx_bull}  ·  SIDEWAYS if ADX < {adx_side}")
-        run_btn = st.button("▶  Run Backtest", type="primary", use_container_width=True)
+            st.caption(f"BULL: ADX > {adx_bull}  /  SIDEWAYS: ADX < {adx_side}")
+        run_btn = st.button("Run Backtest", type="primary", use_container_width=True)
 
     with col_r:
         if run_btn:
@@ -134,7 +146,7 @@ with tab2:
                 df = df[(df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))]
 
             if len(df) < 30:
-                st.error("Not enough data — adjust the time range.")
+                st.error("데이터가 부족합니다. 기간을 늘려주세요.")
             else:
                 result = switcher_run(df, k=k, adx_bull=adx_bull, adx_side=adx_side)
                 m, b = result["metrics"], result["bnh_metrics"]
@@ -150,7 +162,7 @@ with tab2:
                     use_container_width=True,
                 )
 
-                rc1, rc2 = st.columns(2, gap="medium")
+                rc1, rc2 = st.columns(2)
                 with rc1:
                     st.markdown("**Regime Distribution**")
                     counts = result["regime"].value_counts().reset_index()
@@ -167,25 +179,27 @@ with tab2:
                     st.dataframe(alloc, use_container_width=True, hide_index=True)
 
                 latest = result["regime"].dropna().iloc[-1]
-                st.info(f"**Today's Regime ({df.index[-1].date()}):** {str(latest).split('.')[-1]}")
+                st.info(f"Today's Regime ({df.index[-1].date()}): {str(latest).split('.')[-1]}")
         else:
-            st.info("Set parameters on the left and click **▶ Run Backtest**.")
+            st.info("파라미터를 설정하고 Run Backtest를 클릭하세요.")
 
 
 # ──────────────────────────────────────────────
-# Tab 3 · Walk-Forward Analysis
+# Tab 3 · Walk-Forward
 # ──────────────────────────────────────────────
 with tab3:
-    st.subheader(f"Walk-Forward Analysis  ·  {ticker}  ·  {start_date} ~ {end_date}")
-    st.caption("Optimize parameters on train set → validate on unseen test set, rolling across time")
+    st.caption(
+        f"선택 기간을 Train / Test로 나누어 파라미터를 최적화하고, "
+        f"미래 데이터에서 실제 성과를 검증합니다.  "
+        f"대상: {ticker}  /  기간: {start_date} ~ {end_date}"
+    )
     st.divider()
 
-    col_l, col_r = st.columns([1, 3], gap="large")
+    col_l, col_r = st.columns([1, 3])
 
     with col_l:
         with st.container(border=True):
             st.markdown("**Train / Test Split**")
-
             train_pct = st.slider("Train %", 10, 90, 80, 5)
             test_pct = 100 - train_pct
 
@@ -195,27 +209,26 @@ with tab3:
             test_days = (pd.Timestamp(end_date) - pd.Timestamp(split_date)).days
 
             st.caption(
-                f"Train {train_pct}%  →  {start_date} ~ {split_date}  ({train_days}d)\n\n"
-                f"Test  {test_pct}%  →  {split_date} ~ {end_date}  ({test_days}d)"
+                f"Train {train_pct}%  {start_date} ~ {split_date}  ({train_days}d)\n\n"
+                f"Test  {test_pct}%   {split_date} ~ {end_date}  ({test_days}d)"
             )
 
-            st.markdown("**Rolling WFA window**")
-            fold_test_pct = st.slider("Fold test window %", 5, 40, 20, 5)
-            fold_train_pct = 100 - fold_test_pct
+            st.markdown("**Rolling WFA**")
+            fold_test_pct = st.slider("Fold test %", 5, 40, 20, 5)
             fold_test_days = max(int(total_days * fold_test_pct / 100), 30)
-            fold_train_days = max(int(total_days * fold_train_pct / 100), 60)
-            st.caption(f"Each fold — train {fold_train_days}d / test {fold_test_days}d")
+            fold_train_days = max(int(total_days * (100 - fold_test_pct) / 100), 60)
+            st.caption(f"Fold — train {fold_train_days}d / test {fold_test_days}d")
 
-        wfa_btn = st.button("▶  Run WFA", type="primary", use_container_width=True)
+        wfa_btn = st.button("Run WFA", type="primary", use_container_width=True)
 
     with col_r:
         if wfa_btn:
-            with st.spinner("Optimizing folds — this may take a minute…"):
+            with st.spinner("Optimizing — this may take a minute…"):
                 df = load(ticker)
                 df = df[(df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))]
 
             if len(df) < 60:
-                st.error("Not enough data — use a longer time range.")
+                st.error("데이터가 부족합니다. 기간을 늘려주세요.")
             else:
                 train_df = df[df.index < pd.Timestamp(split_date)]
                 test_df = df[df.index >= pd.Timestamp(split_date)]
@@ -229,7 +242,7 @@ with tab3:
                         test_df["Close"].pct_change().fillna(0),
                     )
 
-                    st.markdown(f"**Single Split** — best params: k = {best['k']}  ·  adx_bull = {best['adx_bull']}")
+                    st.markdown(f"**Single Split** — k={best['k']}  /  adx_bull={best['adx_bull']}")
                     sc1, sc2, sc3, sc4 = st.columns(4)
                     sc1.metric("Train CAGR", f"{train_r['metrics']['cagr']:.2f}%")
                     sc2.metric("Train Sharpe", f"{train_r['metrics']['sharpe']:.3f}")
@@ -249,17 +262,14 @@ with tab3:
 
                 st.divider()
 
-                # rolling WFA in calendar days
-                train_yrs = max(round(fold_train_days / 365, 1), 0.5)
-                test_yrs = max(round(fold_test_days / 365, 1), 0.25)
                 folds = walk_forward(
                     df,
-                    train_years=int(max(train_yrs, 1)),
-                    test_years=int(max(test_yrs, 1)),
+                    train_years=max(int(fold_train_days / 365), 1),
+                    test_years=max(int(fold_test_days / 365), 1),
                 )
 
                 if not folds:
-                    st.warning("Not enough data for rolling WFA — try a longer time range or smaller fold windows.")
+                    st.warning("기간이 짧아 롤링 WFA를 실행할 수 없습니다. 기간을 늘려주세요.")
                 else:
                     oos_eq, oos_ret = stitch_oos(folds)
                     oos_m = summary(oos_eq, oos_ret)
@@ -283,23 +293,26 @@ with tab3:
                         for i, f in enumerate(folds, 1)
                     ]
                     st.dataframe(pd.DataFrame(fold_rows), use_container_width=True, hide_index=True)
-                    st.line_chart(pd.DataFrame({"OOS Stitched": oos_eq}), use_container_width=True)
+                    st.line_chart(
+                        pd.DataFrame({"OOS Stitched": oos_eq}),
+                        use_container_width=True,
+                    )
         else:
-            st.info("Set the train/test split on the left and click **▶ Run WFA**.")
+            st.info("Train % 슬라이더로 분할 비율을 설정하고 Run WFA를 클릭하세요.")
 
 
 # ──────────────────────────────────────────────
 # Tab 4 · Data
 # ──────────────────────────────────────────────
 with tab4:
-    st.subheader("Data Management")
+    st.caption("종목별 가격 데이터 캐시 현황을 확인하고 최신 데이터로 갱신합니다.")
+    st.divider()
 
-    if st.button("🔄  Refresh All Data", type="primary"):
+    if st.button("Refresh All Data", type="primary"):
         with st.spinner("Downloading latest prices…"):
             fetch_all()
         st.success("All tickers updated.")
 
-    st.divider()
     raw_dir = Path(__file__).parent.parent / "data" / "raw"
     files = sorted(raw_dir.glob("*.csv"))
     if files:
@@ -316,4 +329,4 @@ with tab4:
             )
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     else:
-        st.warning("No data files found. Click Refresh above.")
+        st.warning("데이터 파일이 없습니다. Refresh를 클릭하세요.")
