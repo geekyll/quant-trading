@@ -115,6 +115,7 @@ python -m scheduler.runner --daemon
 
 ```bash
 streamlit run dashboard/app.py
+# → http://localhost:8501/
 ```
 
 ### API
