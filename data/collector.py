@@ -48,17 +48,17 @@ def load(filename: str = "qqq.csv") -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    print("QQQ 데이터 수집 중...")
+    print("Fetching QQQ data...")
     raw = fetch_qqq()
 
     report = validate(raw)
-    print(f"수집 기간: {raw.index[0].date()} ~ {raw.index[-1].date()}")
-    print(f"거래일 수: {report['trading_days']:,}일")
-    print(f"결측치: {report['missing']}")
-    print(f"비정상 종가: {report['zero_or_negative_close']}건")
-    print(f"중복 날짜: {report['duplicate_dates']}건")
+    print(f"Period : {raw.index[0].date()} ~ {raw.index[-1].date()}")
+    print(f"Trading days    : {report['trading_days']:,}")
+    print(f"Missing values  : {report['missing']}")
+    print(f"Bad close price : {report['zero_or_negative_close']}")
+    print(f"Duplicate dates : {report['duplicate_dates']}")
 
     df = clean(raw)
     path = save(df)
-    print(f"\n저장 완료: {path}")
+    print(f"\nSaved to: {path}")
     print(df.tail())
