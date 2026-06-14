@@ -15,33 +15,56 @@ from strategy.signals import current_signals
 from strategy.switcher import run as switcher_run
 
 st.set_page_config(page_title="Quant Trading Dashboard", layout="wide")
-st.title("Quant Trading Dashboard")
 
 TICKERS = [a.ticker for a in UNIVERSE]
-REGIME_COLOR = {
-    "Regime.BULL": "#2ca02c",
-    "Regime.SIDEWAYS_UP": "#1f77b4",
-    "Regime.BEAR": "#d62728",
-    "Regime.SIDEWAYS_DOWN": "#ff7f0e",
-}
-
 TODAY = pd.Timestamp.today().normalize()
 PRESETS = {"1M": 1, "3M": 3, "6M": 6, "1Y": 12, "2Y": 24, "3Y": 36}
 
-# session_state 초기화
-for key, default in [("bt_start", TODAY - pd.DateOffset(months=12)), ("wfa_start", TODAY - pd.DateOffset(months=36))]:
-    if key not in st.session_state:
-        st.session_state[key] = default.date()
+
+# ──────────────────────────────────────────────
+# Global sidebar — Ticker + Time Range
+# ──────────────────────────────────────────────
+with st.sidebar:
+    st.title("Quant Trading")
+
+    # Ticker
+    st.subheader("Ticker")
+    ticker = st.selectbox("", TICKERS, label_visibility="collapsed")
+
+    st.divider()
+
+    # Time range
+    st.subheader("Time Range")
+    preset_cols = st.columns(3)
+    preset_labels = list(PRESETS.keys())
+    for i, label in enumerate(preset_labels):
+        if preset_cols[i % 3].button(label, key=f"preset_{label}", use_container_width=True):
+            st.session_state["range_preset"] = label
+            st.session_state["start_date"] = (TODAY - pd.DateOffset(months=PRESETS[label])).date()
+            st.session_state["end_date"] = TODAY.date()
+
+    if "start_date" not in st.session_state:
+        st.session_state["start_date"] = (TODAY - pd.DateOffset(months=12)).date()
+    if "end_date" not in st.session_state:
+        st.session_state["end_date"] = TODAY.date()
+
+    start_date = st.date_input("Start", value=st.session_state["start_date"], key="start_input")
+    end_date = st.date_input("End", value=st.session_state["end_date"], key="end_input")
+
+    # 직접 입력 시 preset 표시 초기화
+    if start_date != st.session_state["start_date"] or end_date != st.session_state["end_date"]:
+        st.session_state["start_date"] = start_date
+        st.session_state["end_date"] = end_date
+        st.session_state.pop("range_preset", None)
+
+    active_preset = st.session_state.get("range_preset", "Custom")
+    st.caption(f"Range: **{active_preset}**  |  {start_date} ~ {end_date}")
 
 
-def date_preset_buttons(state_key: str) -> None:
-    """Render 1M/3M/6M/1Y/2Y/3Y shortcut buttons that update session_state[state_key]."""
-    cols = st.columns(len(PRESETS))
-    for col, (label, months) in zip(cols, PRESETS.items()):
-        if col.button(label, key=f"{state_key}_{label}", use_container_width=True):
-            st.session_state[state_key] = (TODAY - pd.DateOffset(months=months)).date()
-
-
+# ──────────────────────────────────────────────
+# Tabs
+# ──────────────────────────────────────────────
+st.title("Quant Trading Dashboard")
 tab1, tab2, tab3, tab4 = st.tabs(["Signals & Portfolio", "Regime Backtest", "Walk-Forward", "Data"])
 
 
@@ -74,21 +97,16 @@ with tab1:
 # Tab 2 : Regime-Adaptive Backtest
 # ──────────────────────────────────────────────
 with tab2:
-    st.subheader("Regime-Adaptive Strategy Backtest")
+    st.subheader(f"Regime-Adaptive Backtest — {ticker}  ({start_date} ~ {end_date})")
 
     col_l, col_r = st.columns([1, 3])
 
     with col_l:
-        ticker = st.selectbox("Ticker", TICKERS, key="bt_ticker")
-        st.markdown("**Period**")
-        date_preset_buttons("bt_start")
-        start_date = st.date_input("Start date", value=st.session_state["bt_start"], key="bt_start_input")
-        end_date = st.date_input("End date", value=TODAY)
         st.markdown("**Parameters**")
         k = st.slider("k (VB strength)", 0.3, 0.7, 0.5, 0.1)
         adx_bull = st.slider("adx_bull", 15, 40, 25, 5)
         adx_side = st.slider("adx_side", 10, 35, 20, 5)
-        run_btn = st.button("Run Backtest", type="primary")
+        run_btn = st.button("Run Backtest", type="primary", use_container_width=True)
 
     with col_r:
         if run_btn:
@@ -97,20 +115,18 @@ with tab2:
                 df = df[(df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))]
 
                 if len(df) < 30:
-                    st.error("Not enough data. Adjust the date range.")
+                    st.error("Not enough data. Adjust the time range in the sidebar.")
                 else:
                     result = switcher_run(df, k=k, adx_bull=adx_bull, adx_side=adx_side)
                     m = result["metrics"]
                     b = result["bnh_metrics"]
 
-                    # metrics
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric("Strategy CAGR", f"{m['cagr']:.2f}%", f"{m['cagr'] - b['cagr']:.2f}% vs B&H")
                     c2.metric("Strategy MDD", f"{m['mdd']:.2f}%", f"{m['mdd'] - b['mdd']:.2f}% vs B&H")
                     c3.metric("Sharpe Ratio", f"{m['sharpe']:.3f}", f"{m['sharpe'] - b['sharpe']:.3f} vs B&H")
                     c4.metric("Total Return", f"{m['total_return']:.2f}%")
 
-                    # equity chart
                     eq_df = pd.DataFrame(
                         {
                             "Strategy": result["equity"],
@@ -119,9 +135,7 @@ with tab2:
                     )
                     st.line_chart(eq_df, use_container_width=True)
 
-                    # regime & strategy allocation
                     rc1, rc2 = st.columns(2)
-
                     with rc1:
                         st.markdown("**Regime Distribution**")
                         counts = result["regime"].value_counts().reset_index()
@@ -137,42 +151,36 @@ with tab2:
                         alloc["%"] = (alloc["Days"] / alloc["Days"].sum() * 100).round(1)
                         st.dataframe(alloc, use_container_width=True, hide_index=True)
 
-                    # current regime
                     latest_regime = result["regime"].dropna().iloc[-1]
                     st.info(f"**Current Regime ({df.index[-1].date()}):** {str(latest_regime).split('.')[-1]}")
         else:
-            st.info("Set parameters on the left and click **Run Backtest**.")
+            st.info("Adjust parameters and click **Run Backtest**.")
 
 
 # ──────────────────────────────────────────────
 # Tab 3 : Walk-Forward Analysis
 # ──────────────────────────────────────────────
 with tab3:
-    st.subheader("Walk-Forward Analysis")
+    st.subheader(f"Walk-Forward Analysis — {ticker}  ({start_date} ~ {end_date})")
 
     col_l, col_r = st.columns([1, 3])
 
     with col_l:
-        wfa_ticker = st.selectbox("Ticker", TICKERS, key="wfa_ticker")
-        st.markdown("**Period**")
-        date_preset_buttons("wfa_start")
-        wfa_start = st.date_input("Start date", value=st.session_state["wfa_start"], key="wfa_start_input")
-        wfa_end = st.date_input("End date", value=TODAY, key="wfa_end")
+        st.markdown("**WFA Parameters**")
         train_years = st.slider("Train years", 1, 5, 3)
         test_years = st.slider("Test years", 1, 2, 1)
         split_date_str = st.date_input("Simple split date", value=pd.Timestamp("2024-01-01"))
-        wfa_btn = st.button("Run WFA", type="primary")
+        wfa_btn = st.button("Run WFA", type="primary", use_container_width=True)
 
     with col_r:
         if wfa_btn:
             with st.spinner("Optimizing folds... this may take a minute."):
-                df = load(wfa_ticker)
-                df = df[(df.index >= pd.Timestamp(wfa_start)) & (df.index <= pd.Timestamp(wfa_end))]
+                df = load(ticker)
+                df = df[(df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))]
 
                 if len(df) < 200:
-                    st.error("Not enough data.")
+                    st.error("Not enough data. Use a longer time range (2Y+ recommended).")
                 else:
-                    # simple split
                     split_date = str(split_date_str)
                     train_df = df[df.index < split_date]
                     test_df = df[df.index >= split_date]
@@ -203,7 +211,6 @@ with tab3:
 
                     st.divider()
 
-                    # walk-forward
                     folds = walk_forward(df, train_years=train_years, test_years=test_years)
                     if not folds:
                         st.warning("Not enough data for rolling WFA with these settings.")
@@ -231,11 +238,9 @@ with tab3:
                                 }
                             )
                         st.dataframe(pd.DataFrame(fold_rows), use_container_width=True, hide_index=True)
-
-                        oos_chart = pd.DataFrame({"OOS Stitched": oos_eq})
-                        st.line_chart(oos_chart, use_container_width=True)
+                        st.line_chart(pd.DataFrame({"OOS Stitched": oos_eq}), use_container_width=True)
         else:
-            st.info("Set parameters on the left and click **Run WFA**.")
+            st.info("Adjust parameters and click **Run WFA**.")
 
 
 # ──────────────────────────────────────────────
@@ -255,13 +260,13 @@ with tab4:
     if files:
         rows = []
         for f in files:
-            df = pd.read_csv(f, index_col=0, parse_dates=True)
+            df_info = pd.read_csv(f, index_col=0, parse_dates=True)
             rows.append(
                 {
                     "Ticker": f.stem,
-                    "Rows": len(df),
-                    "Start": df.index.min().date(),
-                    "End": df.index.max().date(),
+                    "Rows": len(df_info),
+                    "Start": df_info.index.min().date(),
+                    "End": df_info.index.max().date(),
                     "File": f.name,
                 }
             )
