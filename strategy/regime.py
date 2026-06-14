@@ -24,8 +24,8 @@ def _calc_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
     plus_dm = (high - prev_high).clip(lower=0).where((high - prev_high) > (prev_low - low), 0)
     minus_dm = (prev_low - low).clip(lower=0).where((prev_low - low) > (high - prev_high), 0)
 
-    # Wilder smoothing
-    def wilder(s: pd.Series, n: int) -> pd.Series:
+    def wilder_sum(s: pd.Series, n: int) -> pd.Series:
+        """Wilder smoothed sum — used for TR and DM (seed = sum of first n)."""
         result = s.copy().astype(float)
         result.iloc[:n] = float("nan")
         result.iloc[n] = s.iloc[1 : n + 1].sum()
@@ -33,11 +33,20 @@ def _calc_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
             result.iloc[i] = result.iloc[i - 1] - result.iloc[i - 1] / n + s.iloc[i]
         return result
 
-    atr = wilder(tr, period)
-    plus_di = 100 * wilder(plus_dm, period) / atr
-    minus_di = 100 * wilder(minus_dm, period) / atr
+    def wilder_avg(s: pd.Series, n: int) -> pd.Series:
+        """Wilder smoothed average — used for ADX (seed = mean of first n DX values)."""
+        result = s.copy().astype(float)
+        result.iloc[:n] = float("nan")
+        result.iloc[n] = s.iloc[1 : n + 1].mean()
+        for i in range(n + 1, len(s)):
+            result.iloc[i] = result.iloc[i - 1] * (n - 1) / n + s.iloc[i] / n
+        return result
+
+    atr = wilder_sum(tr, period)
+    plus_di = 100 * wilder_sum(plus_dm, period) / atr
+    minus_di = 100 * wilder_sum(minus_dm, period) / atr
     dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
-    adx = wilder(dx, period)
+    adx = wilder_avg(dx, period)
     return adx
 
 
