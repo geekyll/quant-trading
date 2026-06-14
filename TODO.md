@@ -49,10 +49,10 @@
 ## Universe 구성
 
 - [x] QQQ (NASDAQ 100 ETF)
-- [ ] SOXL (Semiconductor 3x Bull ETF)
-- [ ] SOXS (Semiconductor 3x Bear ETF)
-- [ ] BTC-USD (Bitcoin)
-- [ ] universe.py 티커 등록 및 관리
+- [x] SOXL (Semiconductor 3x Bull ETF)
+- [x] SOXS (Semiconductor 3x Bear ETF)
+- [x] BTC-USD (Bitcoin)
+- [x] universe.py 티커 등록 및 관리
 
 ## 데이터 확보
 
@@ -248,3 +248,40 @@
 ## M5
 
 - [ ] 모멘텀 전략 확장
+
+---
+
+# Phase 11. 시장 레짐 적응 전략 + Walk-Forward 검증
+
+## 레짐 탐지
+
+- [x] ADX(14) 계산 (Wilder smoothing 수동 구현)
+- [x] SMA200 기준 상승장/하락장 판단
+- [x] confirm_days=3 whipsaw 방지 로직
+- [x] BULL / SIDEWAYS_UP / BEAR / SIDEWAYS_DOWN 4가지 레짐
+
+## 전략별 구현
+
+- [x] Volatility Breakout (Larry Williams, BULL 레짐)
+- [x] Grid / Mean-Reversion (Bollinger Band, SIDEWAYS 레짐)
+- [x] CASH (BEAR / SIDEWAYS_DOWN 레짐)
+
+## 자동 전략 스위처
+
+- [x] strategy/switcher.py — 레짐별 전략 자동 전환
+- [x] 백테스트 결과: CAGR 93%, MDD -32%, Sharpe 2.04 vs B&H Sharpe 0.86
+
+## Walk-Forward Analysis (WFA)
+
+- [x] backtest/wfa.py 구현
+- [x] 단순 분할 (2015-2021 학습 / 2022-2026 테스트)
+  - [x] 학습 CAGR 139.7%, 테스트 CAGR 32.1% (B&H 6.9%)
+- [x] 롤링 WFA (3년 학습 / 1년 테스트, 9 folds)
+  - [x] OOS 스티치 CAGR 18.3%, MDD -15.2%, Sharpe 1.18
+- [x] WFA 차트 저장 (report/btc_usd_wfa.png)
+
+## 다음 단계
+
+- [ ] 레짐 신호 → scheduler/runner.py 연동
+- [ ] QQQ / SOXL / SOXS에 동일 전략 적용
+- [ ] 실시간 레짐 감지 → Telegram 알림

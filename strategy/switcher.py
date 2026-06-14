@@ -30,12 +30,19 @@ REGIME_COLORS = {
 }
 
 
-def run(df: pd.DataFrame) -> dict:
-    regime = detect(df)
+def run(
+    df: pd.DataFrame,
+    k: float = 0.5,
+    adx_bull: float = 25,
+    adx_side: float = 20,
+    grid_window: int = 20,
+    grid_std: float = 1.5,
+) -> dict:
+    regime = detect(df, adx_bull=adx_bull, adx_side=adx_side)
     daily_ret = df["Close"].pct_change().fillna(0)
 
-    vb_ret = vb_signal(df)  # volatility breakout daily returns
-    grid_pos = grid_signal(df)  # grid position (0 or 1)
+    vb_ret = vb_signal(df, k=k)
+    grid_pos = grid_signal(df, window=grid_window, std_mult=grid_std)
     grid_ret = grid_pos * daily_ret
 
     # combine: pick return based on regime each day
