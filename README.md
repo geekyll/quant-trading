@@ -1,13 +1,13 @@
 # Quant Trading
 
-NASDAQ 자동매매 시스템 — 이동평균선 기반 전략으로 QQQ, SOXL, SOXS, BTC-USD를 거래하고, 미래에셋증권 Open API로 실거래를 자동화하는 프로젝트.
+NASDAQ 자동매매 시스템 — 이동평균선 기반 전략으로 QQQ, SOXL, SOXS, BTC-USD를 거래하고, 한국투자증권 (KIS) Open API로 실거래를 자동화하는 프로젝트.
 
 ## Goal
 
 | 항목 | 내용 |
 |------|------|
 | 시장 | NASDAQ |
-| 증권사 | 미래에셋증권 |
+| 증권사 | 한국투자증권 (KIS) |
 | 투자 대상 | QQQ, SOXL, SOXS, BTC-USD |
 | 1차 전략 | SMA200 돌파 매수/매도 |
 | 최종 목표 | 모멘텀 기반 자동매매 |
@@ -33,7 +33,7 @@ quant-trading/
 │   ├── engine.py          # SMA200 backtest vs Buy & Hold
 │   └── paper_trade.py     # virtual portfolio & trade log
 ├── broker/
-│   └── mirae.py           # Mirae Asset Open API client
+│   └── kis.py             # Korea Investment & Securities Open API client
 ├── scheduler/
 │   ├── runner.py          # APScheduler daily job (21:30 KST)
 │   └── notify.py          # Discord & Telegram notifications
@@ -140,16 +140,18 @@ uvicorn api.main:app --reload
 
 ---
 
-## Broker (Mirae Asset API)
+## Broker (KIS Open API)
 
-`broker/mirae.py`는 미래에셋증권 Open API 클라이언트입니다.  
-실행 전 아래 환경변수를 설정하세요:
+`broker/kis.py`는 한국투자증권 (KIS) Open API 클라이언트입니다.  
+신청: https://apiportal.koreainvestment.com
+
+`.env`에 아래 값을 입력하세요:
 
 ```bash
-export APP_KEY=your_app_key
-export APP_SECRET=your_app_secret
-export ACCOUNT_NO=your_account_number  # 계좌번호 (숫자만)
-export USE_MOCK=true                   # 모의투자: true / 실거래: false
+APP_KEY=your_app_key
+APP_SECRET=your_app_secret
+ACCOUNT_NO=your_account_number  # 계좌번호 (숫자만, 하이픈 제외)
+USE_MOCK=true                   # 모의투자: true / 실거래: false
 ```
 
 ---
@@ -170,6 +172,6 @@ export TELEGRAM_CHAT_ID=your_chat_id
 
 - [x] **M1** — QQQ 데이터 수집, SMA200 계산, 백테스트
 - [x] **M2** — Buy & Hold 대비 성과 검증, 전략 개선
-- [ ] **M3** — 미래에셋 API 연동, 모의투자 자동매매
+- [ ] **M3** — 한국투자증권 KIS API 연동, 모의투자 자동매매
 - [ ] **M4** — 실거래 자동매매 운영
 - [ ] **M5** — 모멘텀 전략 확장

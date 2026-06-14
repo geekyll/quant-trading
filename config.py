@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 
-class MiraeConfig:
+class KISConfig:
     app_key: str = os.environ.get("APP_KEY", "")
     app_secret: str = os.environ.get("APP_SECRET", "")
     account_no: str = os.environ.get("ACCOUNT_NO", "")

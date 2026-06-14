@@ -1,21 +1,25 @@
 """
-Mirae Asset Open API client (Phase 6).
+Korea Investment & Securities (KIS) Open API client.
 Credentials are loaded from .env via config.py.
 Set USE_MOCK=true to run against the paper-trading endpoint.
+
+API docs: https://apiportal.koreainvestment.com
 """
 
-from config import MiraeConfig
+import requests
+
+from config import KISConfig
 
 
-class MiraeClient:
+class KISClient:
     BASE_URL = "https://openapi.koreainvestment.com:9443"
     MOCK_URL = "https://openapivts.koreainvestment.com:29443"
 
     def __init__(self) -> None:
-        self.app_key = MiraeConfig.app_key
-        self.app_secret = MiraeConfig.app_secret
-        self.account_no = MiraeConfig.account_no
-        self.base = self.MOCK_URL if MiraeConfig.use_mock else self.BASE_URL
+        self.app_key = KISConfig.app_key
+        self.app_secret = KISConfig.app_secret
+        self.account_no = KISConfig.account_no
+        self.base = self.MOCK_URL if KISConfig.use_mock else self.BASE_URL
         self._token: str | None = None
 
     # ------------------------------------------------------------------
@@ -23,8 +27,6 @@ class MiraeClient:
     # ------------------------------------------------------------------
 
     def _get_token(self) -> str:
-        import requests
-
         resp = requests.post(
             f"{self.base}/oauth2/tokenP",
             json={"grant_type": "client_credentials", "appkey": self.app_key, "appsecret": self.app_secret},
@@ -49,8 +51,6 @@ class MiraeClient:
     # ------------------------------------------------------------------
 
     def get_balance(self) -> dict:
-        import requests
-
         resp = requests.get(
             f"{self.base}/uapi/overseas-stock/v1/trading/inquire-balance",
             headers=self._headers("JTTT3012R"),
@@ -59,6 +59,21 @@ class MiraeClient:
                 "ACNT_PRDT_CD": self.account_no[8:],
                 "OVRS_EXCG_CD": "NASD",
                 "TR_CRCY_CD": "USD",
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_buyable_amount(self, ticker: str) -> dict:
+        resp = requests.get(
+            f"{self.base}/uapi/overseas-stock/v1/trading/inquire-psamount",
+            headers=self._headers("JTTT3007R"),
+            params={
+                "CANO": self.account_no[:8],
+                "ACNT_PRDT_CD": self.account_no[8:],
+                "OVRS_EXCG_CD": "NASD",
+                "OVRS_ORD_UNPR": "0",
+                "ITEM_CD": ticker,
             },
         )
         resp.raise_for_status()
@@ -75,8 +90,6 @@ class MiraeClient:
         return self._order(ticker, qty, side="sell")
 
     def _order(self, ticker: str, qty: int, side: str) -> dict:
-        import requests
-
         tr_id = "JTTT1002U" if side == "buy" else "JTTT1006U"
         resp = requests.post(
             f"{self.base}/uapi/overseas-stock/v1/trading/order",
