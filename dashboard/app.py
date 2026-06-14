@@ -19,72 +19,52 @@ st.set_page_config(page_title="Quant Trading Dashboard", page_icon="📈", layou
 TICKERS = [a.ticker for a in UNIVERSE]
 TODAY = pd.Timestamp.today().normalize()
 
-PRESETS = [
-    ("1M", 1, "Past 1 Month"),
-    ("3M", 3, "Past 3 Months"),
-    ("6M", 6, "Past 6 Months"),
-    ("1Y", 12, "Past 1 Year"),
-    ("2Y", 24, "Past 2 Years"),
-    ("3Y", 36, "Past 3 Years"),
+PRESET_OPTIONS = [
+    "Past 1 Month",
+    "Past 3 Months",
+    "Past 6 Months",
+    "Past 1 Year",
+    "Past 2 Years",
+    "Past 3 Years",
+    "Custom range",
 ]
-
-if "start_date" not in st.session_state:
-    st.session_state["start_date"] = (TODAY - pd.DateOffset(months=12)).date()
-if "end_date" not in st.session_state:
-    st.session_state["end_date"] = TODAY.date()
-if "range_label" not in st.session_state:
-    st.session_state["range_label"] = "Past 1 Year"
-if "show_custom" not in st.session_state:
-    st.session_state["show_custom"] = False
+PRESET_MONTHS = {
+    "Past 1 Month": 1,
+    "Past 3 Months": 3,
+    "Past 6 Months": 6,
+    "Past 1 Year": 12,
+    "Past 2 Years": 24,
+    "Past 3 Years": 36,
+}
 
 
 # ──────────────────────────────────────────────
-# Top bar — title / ticker / time picker
+# Top bar — title / ticker / period
 # ──────────────────────────────────────────────
-col_title, col_ticker, col_range = st.columns([2, 1, 2])
+col_title, col_ticker, col_period, col_custom = st.columns([2, 1, 1, 2])
 
 with col_title:
     st.markdown("### 📈 Quant Trading Dashboard")
 
 with col_ticker:
-    ticker = st.selectbox("ticker", TICKERS, label_visibility="collapsed")
+    ticker = st.selectbox("Ticker", TICKERS)
 
-with col_range:
-    s = st.session_state["start_date"]
-    e = st.session_state["end_date"]
-    lbl = st.session_state["range_label"]
+with col_period:
+    selected = st.selectbox("Period", PRESET_OPTIONS, index=3)
 
-    with st.popover(f"📅  {lbl}  ·  {s} ~ {e}", use_container_width=True):
-        # preset list
-        active = st.session_state["range_label"]
-        for key, months, desc in PRESETS:
-            is_active = active == desc
-            label_str = f"**{key}** &nbsp; {desc}" if is_active else f"{key} &nbsp; {desc}"
-            if st.button(label_str, key=f"preset_{key}", use_container_width=True):
-                st.session_state["start_date"] = (TODAY - pd.DateOffset(months=months)).date()
-                st.session_state["end_date"] = TODAY.date()
-                st.session_state["range_label"] = desc
-                st.session_state["show_custom"] = False
-                st.rerun()
+# 날짜 계산
+if selected != "Custom range":
+    start_date = (TODAY - pd.DateOffset(months=PRESET_MONTHS[selected])).date()
+    end_date = TODAY.date()
+    with col_custom:
+        st.caption("&nbsp;")
+        st.caption(f"{start_date} ~ {end_date}")
+else:
+    with col_custom:
+        c1, c2 = st.columns(2)
+        start_date = c1.date_input("Start", value=(TODAY - pd.DateOffset(months=12)).date())
+        end_date = c2.date_input("End", value=TODAY.date())
 
-        st.divider()
-
-        # custom range toggle
-        if st.button("📅  Custom range…", use_container_width=True, key="btn_custom"):
-            st.session_state["show_custom"] = not st.session_state["show_custom"]
-
-        if st.session_state["show_custom"]:
-            c_s = st.date_input("Start", value=st.session_state["start_date"], key="cs")
-            c_e = st.date_input("End", value=st.session_state["end_date"], key="ce")
-            if st.button("Apply", type="primary", use_container_width=True, key="apply_custom"):
-                st.session_state["start_date"] = c_s
-                st.session_state["end_date"] = c_e
-                st.session_state["range_label"] = f"{c_s} ~ {c_e}"
-                st.session_state["show_custom"] = False
-                st.rerun()
-
-start_date = st.session_state["start_date"]
-end_date = st.session_state["end_date"]
 total_days = max((pd.Timestamp(end_date) - pd.Timestamp(start_date)).days, 1)
 
 st.divider()
