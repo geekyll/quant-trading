@@ -25,6 +25,23 @@ REGIME_COLOR = {
     "Regime.SIDEWAYS_DOWN": "#ff7f0e",
 }
 
+TODAY = pd.Timestamp.today().normalize()
+PRESETS = {"1M": 1, "3M": 3, "6M": 6, "1Y": 12, "2Y": 24, "3Y": 36}
+
+# session_state 초기화
+for key, default in [("bt_start", TODAY - pd.DateOffset(months=12)), ("wfa_start", TODAY - pd.DateOffset(months=36))]:
+    if key not in st.session_state:
+        st.session_state[key] = default.date()
+
+
+def date_preset_buttons(state_key: str) -> None:
+    """Render 1M/3M/6M/1Y/2Y/3Y shortcut buttons that update session_state[state_key]."""
+    cols = st.columns(len(PRESETS))
+    for col, (label, months) in zip(cols, PRESETS.items()):
+        if col.button(label, key=f"{state_key}_{label}", use_container_width=True):
+            st.session_state[state_key] = (TODAY - pd.DateOffset(months=months)).date()
+
+
 tab1, tab2, tab3, tab4 = st.tabs(["Signals & Portfolio", "Regime Backtest", "Walk-Forward", "Data"])
 
 
@@ -63,8 +80,10 @@ with tab2:
 
     with col_l:
         ticker = st.selectbox("Ticker", TICKERS, key="bt_ticker")
-        start_date = st.date_input("Start date", value=pd.Timestamp("2025-01-01"))
-        end_date = st.date_input("End date", value=pd.Timestamp.today())
+        st.markdown("**Period**")
+        date_preset_buttons("bt_start")
+        start_date = st.date_input("Start date", value=st.session_state["bt_start"], key="bt_start_input")
+        end_date = st.date_input("End date", value=TODAY)
         st.markdown("**Parameters**")
         k = st.slider("k (VB strength)", 0.3, 0.7, 0.5, 0.1)
         adx_bull = st.slider("adx_bull", 15, 40, 25, 5)
@@ -135,8 +154,10 @@ with tab3:
 
     with col_l:
         wfa_ticker = st.selectbox("Ticker", TICKERS, key="wfa_ticker")
-        wfa_start = st.date_input("Start date", value=pd.Timestamp("2018-01-01"), key="wfa_start")
-        wfa_end = st.date_input("End date", value=pd.Timestamp.today(), key="wfa_end")
+        st.markdown("**Period**")
+        date_preset_buttons("wfa_start")
+        wfa_start = st.date_input("Start date", value=st.session_state["wfa_start"], key="wfa_start_input")
+        wfa_end = st.date_input("End date", value=TODAY, key="wfa_end")
         train_years = st.slider("Train years", 1, 5, 3)
         test_years = st.slider("Test years", 1, 2, 1)
         split_date_str = st.date_input("Simple split date", value=pd.Timestamp("2024-01-01"))
