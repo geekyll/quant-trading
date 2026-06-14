@@ -1,18 +1,15 @@
 """
 Notification helpers for Discord and Telegram.
-Configure via environment variables:
-  DISCORD_WEBHOOK_URL
-  TELEGRAM_BOT_TOKEN
-  TELEGRAM_CHAT_ID
+Credentials are loaded from .env via config.py.
 """
-
-import os
 
 import requests
 
+from config import DiscordConfig, TelegramConfig
+
 
 def send_discord(message: str) -> bool:
-    url = os.environ.get("DISCORD_WEBHOOK_URL")
+    url = DiscordConfig.webhook_url
     if not url:
         print("[notify] DISCORD_WEBHOOK_URL not set — skipping")
         return False
@@ -21,8 +18,8 @@ def send_discord(message: str) -> bool:
 
 
 def send_telegram(message: str) -> bool:
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    token = TelegramConfig.bot_token
+    chat_id = TelegramConfig.chat_id
     if not token or not chat_id:
         print("[notify] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping")
         return False

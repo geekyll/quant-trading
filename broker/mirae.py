@@ -1,10 +1,10 @@
 """
 Mirae Asset Open API client (Phase 6).
-Requires APP_KEY, APP_SECRET, ACCOUNT_NO environment variables.
+Credentials are loaded from .env via config.py.
 Set USE_MOCK=true to run against the paper-trading endpoint.
 """
 
-import os
+from config import MiraeConfig
 
 
 class MiraeClient:
@@ -12,11 +12,10 @@ class MiraeClient:
     MOCK_URL = "https://openapivts.koreainvestment.com:29443"
 
     def __init__(self) -> None:
-        self.app_key = os.environ["APP_KEY"]
-        self.app_secret = os.environ["APP_SECRET"]
-        self.account_no = os.environ["ACCOUNT_NO"]
-        self.use_mock = os.environ.get("USE_MOCK", "true").lower() == "true"
-        self.base = self.MOCK_URL if self.use_mock else self.BASE_URL
+        self.app_key = MiraeConfig.app_key
+        self.app_secret = MiraeConfig.app_secret
+        self.account_no = MiraeConfig.account_no
+        self.base = self.MOCK_URL if MiraeConfig.use_mock else self.BASE_URL
         self._token: str | None = None
 
     # ------------------------------------------------------------------
