@@ -11,3 +11,5 @@ report/*.pdf
 *.env
 .env
 .claude
+data/paper_portfolio.json
+data/paper_trades.csv

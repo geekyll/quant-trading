@@ -4,10 +4,15 @@ version = "0.1.0"
 description = "QQQ 자동매매 - 이동평균선 기반 퀀트 트레이딩"
 requires-python = ">=3.14"
 dependencies = [
+    "apscheduler>=3.11.2",
+    "fastapi>=0.137.0",
     "jupyter>=1.1.1",
     "matplotlib>=3.11.0",
     "numpy>=2.4.6",
     "pandas>=3.0.3",
+    "requests>=2.34.2",
+    "streamlit>=1.58.0",
+    "uvicorn>=0.49.0",
     "vectorbt>=0.28.2",
     "yfinance>=1.4.1",
 ]
