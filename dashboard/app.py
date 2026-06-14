@@ -20,51 +20,60 @@ TICKERS = [a.ticker for a in UNIVERSE]
 TODAY = pd.Timestamp.today().normalize()
 PRESETS = {"1M": 1, "3M": 3, "6M": 6, "1Y": 12, "2Y": 24, "3Y": 36}
 
+# session_state 초기화
+if "start_date" not in st.session_state:
+    st.session_state["start_date"] = (TODAY - pd.DateOffset(months=12)).date()
+if "end_date" not in st.session_state:
+    st.session_state["end_date"] = TODAY.date()
+if "range_label" not in st.session_state:
+    st.session_state["range_label"] = "1Y"
+
 
 # ──────────────────────────────────────────────
-# Global sidebar — Ticker + Time Range
+# Top bar — Ticker + Time Range picker
 # ──────────────────────────────────────────────
-with st.sidebar:
-    st.title("Quant Trading")
+top_l, top_r = st.columns([1, 2])
 
-    # Ticker
-    st.subheader("Ticker")
-    ticker = st.selectbox("", TICKERS, label_visibility="collapsed")
+with top_l:
+    ticker = st.selectbox("Ticker", TICKERS, label_visibility="collapsed")
 
-    st.divider()
+with top_r:
+    start_date = st.session_state["start_date"]
+    end_date = st.session_state["end_date"]
+    label = st.session_state["range_label"]
+    popover_label = f"📅  {label}  ·  {start_date} ~ {end_date}"
 
-    # Time range
-    st.subheader("Time Range")
-    preset_cols = st.columns(3)
-    preset_labels = list(PRESETS.keys())
-    for i, label in enumerate(preset_labels):
-        if preset_cols[i % 3].button(label, key=f"preset_{label}", use_container_width=True):
-            st.session_state["range_preset"] = label
-            st.session_state["start_date"] = (TODAY - pd.DateOffset(months=PRESETS[label])).date()
-            st.session_state["end_date"] = TODAY.date()
+    with st.popover(popover_label, use_container_width=True):
+        tab_relative, tab_custom = st.tabs(["Relative", "Custom"])
 
-    if "start_date" not in st.session_state:
-        st.session_state["start_date"] = (TODAY - pd.DateOffset(months=12)).date()
-    if "end_date" not in st.session_state:
-        st.session_state["end_date"] = TODAY.date()
+        with tab_relative:
+            cols = st.columns(3)
+            for i, (preset, months) in enumerate(PRESETS.items()):
+                if cols[i % 3].button(preset, key=f"p_{preset}", use_container_width=True):
+                    st.session_state["start_date"] = (TODAY - pd.DateOffset(months=months)).date()
+                    st.session_state["end_date"] = TODAY.date()
+                    st.session_state["range_label"] = f"Last {preset}"
+                    st.rerun()
 
-    start_date = st.date_input("Start", value=st.session_state["start_date"], key="start_input")
-    end_date = st.date_input("End", value=st.session_state["end_date"], key="end_input")
+        with tab_custom:
+            c_start = st.date_input("Start", value=st.session_state["start_date"], key="custom_start")
+            c_end = st.date_input("End", value=st.session_state["end_date"], key="custom_end")
+            if st.button("Apply", type="primary", use_container_width=True):
+                st.session_state["start_date"] = c_start
+                st.session_state["end_date"] = c_end
+                st.session_state["range_label"] = f"{c_start} ~ {c_end}"
+                st.rerun()
 
-    # 직접 입력 시 preset 표시 초기화
-    if start_date != st.session_state["start_date"] or end_date != st.session_state["end_date"]:
-        st.session_state["start_date"] = start_date
-        st.session_state["end_date"] = end_date
-        st.session_state.pop("range_preset", None)
+# 최신 session_state 값으로 갱신
+start_date = st.session_state["start_date"]
+end_date = st.session_state["end_date"]
 
-    active_preset = st.session_state.get("range_preset", "Custom")
-    st.caption(f"Range: **{active_preset}**  |  {start_date} ~ {end_date}")
+st.divider()
 
 
 # ──────────────────────────────────────────────
 # Tabs
 # ──────────────────────────────────────────────
-st.title("Quant Trading Dashboard")
 tab1, tab2, tab3, tab4 = st.tabs(["Signals & Portfolio", "Regime Backtest", "Walk-Forward", "Data"])
 
 
@@ -97,7 +106,7 @@ with tab1:
 # Tab 2 : Regime-Adaptive Backtest
 # ──────────────────────────────────────────────
 with tab2:
-    st.subheader(f"Regime-Adaptive Backtest — {ticker}  ({start_date} ~ {end_date})")
+    st.subheader(f"Regime-Adaptive Backtest — {ticker}  ·  {start_date} ~ {end_date}")
 
     col_l, col_r = st.columns([1, 3])
 
@@ -115,7 +124,7 @@ with tab2:
                 df = df[(df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))]
 
                 if len(df) < 30:
-                    st.error("Not enough data. Adjust the time range in the sidebar.")
+                    st.error("Not enough data. Adjust the time range.")
                 else:
                     result = switcher_run(df, k=k, adx_bull=adx_bull, adx_side=adx_side)
                     m = result["metrics"]
@@ -161,7 +170,7 @@ with tab2:
 # Tab 3 : Walk-Forward Analysis
 # ──────────────────────────────────────────────
 with tab3:
-    st.subheader(f"Walk-Forward Analysis — {ticker}  ({start_date} ~ {end_date})")
+    st.subheader(f"Walk-Forward Analysis — {ticker}  ·  {start_date} ~ {end_date}")
 
     col_l, col_r = st.columns([1, 3])
 
