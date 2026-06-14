@@ -4,8 +4,8 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
-data/*.csv
-data/*.parquet
+data/raw/
+data/processed/
 report/*.html
 report/*.pdf
 *.env

@@ -7,7 +7,7 @@
 - 언어: Python
 - 1차 전략: 이동평균선(Moving Average)
 - 최종 목표: 모멘텀 기반 자동매매
-- 투자 대상: QQQ
+- 투자 대상: QQQ, SOXL, SOXS, Bitcoin (BTC-USD)
 - 성공 기준
   - Buy & Hold 대비 낮은 MDD
   - 유사하거나 더 높은 CAGR
@@ -36,6 +36,7 @@
 ## 프로젝트 구조
 
 - [x] data/
+- [x] data/raw/
 - [x] strategy/
 - [x] backtest/
 - [x] report/
@@ -45,11 +46,20 @@
 
 # Phase 2. 데이터 수집
 
-## QQQ 데이터 확보
+## Universe 구성
+
+- [x] QQQ (NASDAQ 100 ETF)
+- [ ] SOXL (Semiconductor 3x Bull ETF)
+- [ ] SOXS (Semiconductor 3x Bear ETF)
+- [ ] BTC-USD (Bitcoin)
+- [ ] universe.py 티커 등록 및 관리
+
+## 데이터 확보
 
 - [x] yfinance 연동
+- [x] 멀티 티커 지원 collector
 - [x] 2005년 이후 데이터 수집
-- [x] CSV 저장 기능 구현
+- [x] data/raw/ 에 티커별 CSV 저장
 
 ## 데이터 검증
 
