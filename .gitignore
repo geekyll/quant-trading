@@ -1,3 +1,4 @@
+node_modules/
 .venv/
 __pycache__/
 *.pyc
@@ -9,3 +10,4 @@ report/*.html
 report/*.pdf
 *.env
 .env
+.claude
