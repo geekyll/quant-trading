@@ -13,6 +13,11 @@ class KISConfig:
     use_mock: bool = os.environ.get("USE_MOCK", "true").lower() == "true"
 
 
+class UpbitConfig:
+    access_key: str = os.environ.get("UPBIT_ACCESS_KEY", "")
+    secret_key: str = os.environ.get("UPBIT_SECRET_KEY", "")
+
+
 class DiscordConfig:
     webhook_url: str = os.environ.get("DISCORD_WEBHOOK_URL", "")
 
