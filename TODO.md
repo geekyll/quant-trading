@@ -13,33 +13,33 @@
 ---
 # Phase 1. 개발환경 구축
 ## Python 환경 구성
-- [ ] Python 3.14 설치
-- [ ] uv 설치
-- [ ] Git Repository 생성
-- [ ] GitHub 연결
+- [x] Python 3.14 설치
+- [x] uv 설치
+- [x] Git Repository 생성
+- [x] GitHub 연결
 ## 필수 라이브러리
-- [ ] pandas
-- [ ] numpy
-- [ ] matplotlib
-- [ ] yfinance
-- [ ] vectorbt
-- [ ] jupyter
+- [x] pandas
+- [x] numpy
+- [x] matplotlib
+- [x] yfinance
+- [x] vectorbt
+- [x] jupyter
 ## 프로젝트 구조
-- [ ] data/
-- [ ] strategy/
-- [ ] backtest/
-- [ ] report/
-- [ ] notebook/
+- [x] data/
+- [x] strategy/
+- [x] backtest/
+- [x] report/
+- [x] notebook/
 ---
 # Phase 2. 데이터 수집
 ## QQQ 데이터 확보
-- [ ] yfinance 연동
-- [ ] 2005년 이후 데이터 수집
-- [ ] CSV 저장 기능 구현
+- [x] yfinance 연동
+- [x] 2005년 이후 데이터 수집
+- [x] CSV 저장 기능 구현
 ## 데이터 검증
-- [ ] 결측치 확인
-- [ ] 거래일 확인
-- [ ] 종가 데이터 정제
+- [x] 결측치 확인
+- [x] 거래일 확인
+- [x] 종가 데이터 정제
 ---
 # Phase 3. 이동평균선 구현
 ## SMA 계산
@@ -137,7 +137,7 @@
 ---
 # Milestone
 ## M1
-- [ ] QQQ 데이터 수집 완료
+- [x] QQQ 데이터 수집 완료
 - [ ] SMA200 계산 완료
 - [ ] 백테스트 완료
 ## M2
