@@ -13,3 +13,4 @@ report/*.pdf
 .claude
 data/paper_portfolio.json
 data/paper_trades.csv
+data/paper/
