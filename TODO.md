@@ -1,287 +1,110 @@
-# Quant Trading Project
+# TODO — 남은 단계 (순서대로)
 
-## 목표
+완료된 작업은 [HISTORY.md](HISTORY.md)(단계 1~11) 참고. 모든 문서의 단위는 **"단계(Step)"** 하나로 통일한다.
+이 문서는 **단계 12부터** 앞으로 할 일을 진행 순서대로 정리한다. 기존 Phase에서 안 끝난 항목도 모두 이
+순서 안에 녹였다 (출처는 옛 Phase 번호를 `(P5)`처럼 표기).
 
-- 시장: NASDAQ
-- 증권사: 한국투자증권 (KIS)
-- 언어: Python
-- 1차 전략: 이동평균선(Moving Average)
-- 최종 목표: 모멘텀 기반 자동매매
-- 투자 대상: QQQ, SOXL, SOXS, Bitcoin (BTC-USD)
-- 성공 기준
-  - Buy & Hold 대비 낮은 MDD
-  - 유사하거나 더 높은 CAGR
-  - 자동매매 가능한 구조 확보
+> 🎯 **최우선 목표:** 실시간(예: 30분 주기)으로 큰 변동을 감지하고, 레짐/전략에 따라 실시간 매수·매도가
+> 동작하게 만든다. **실거래 전에 반드시 페이퍼(paper)로 먼저 검증.** 비트코인(Upbit, BTC)부터 →
+> 이후 주식(NYSE: QQQ/SOXL/SOXS)으로 확장.
 
----
-
-# Phase 1. 개발환경 구축
-
-## Python 환경 구성
-
-- [x] Python 3.14 설치
-- [x] uv 설치
-- [x] Git Repository 생성
-- [x] GitHub 연결
-
-## 필수 라이브러리
-
-- [x] pandas
-- [x] numpy
-- [x] matplotlib
-- [x] yfinance
-- [x] vectorbt
-- [x] jupyter
-
-## 프로젝트 구조
-
-- [x] data/
-- [x] data/raw/
-- [x] strategy/
-- [x] backtest/
-- [x] report/
-- [x] notebook/
+### 현재 한계 (왜 지금 구조로는 안 되는가)
+- 모든 신호가 **일봉 1회**: `strategy/signals.py`는 일봉 CSV 마지막 행으로 SMA200만 판단.
+- `scheduler/runner.py`는 **하루 1번(21:30 KST)** 실행 → 장중 급변 대응 불가, 24시간 BTC엔 무의미.
+- `strategy/switcher.py`/`regime.py`는 **백테스트용**(전체 시계열 수익률). "지금 BUY/SELL/HOLD"를 뽑는 함수 없음.
+- `broker/upbit.py`는 주문 가능하지만 **어떤 전략·스케줄러에도 연결 안 됨**.
+- **인트라데이 수집 / 큰 변동 감지 / 실시간 루프 / 페이퍼 포트폴리오 / 안전장치**가 전혀 없음.
 
 ---
 
-# Phase 2. 데이터 수집
+## 단계 12 — 실시간 신호 함수 (가장 핵심, 나머지의 전제)
+- [ ] `strategy/live.py` 신설: OHLCV 입력 → **현재 시점의** `{regime, strategy, action(BUY/SELL/HOLD), reason}` 반환
+- [ ] `regime.detect()`의 마지막 값을 실시간 레짐으로 사용 (confirm_days 유지)
+- [ ] VB/Grid 전략을 "현재 봉 기준 진입/청산 여부"로 변환 (기존 함수는 시계열 수익률 반환이라 그대로 못 씀)
 
-## Universe 구성
+## 단계 13 — 인트라데이 데이터 파이프라인
+- [ ] Upbit 30분봉 수집기 (`pyupbit.get_ohlcv(interval="minute30")` 래핑)
+- [ ] 최근 N봉 캐시, 결측/지연 처리
+- [ ] (선택) 일봉 collector와 동일 인터페이스 유지하는 어댑터
 
-- [x] QQQ (NASDAQ 100 ETF)
-- [x] SOXL (Semiconductor 3x Bull ETF)
-- [x] SOXS (Semiconductor 3x Bear ETF)
-- [x] BTC-USD (Bitcoin)
-- [x] universe.py 티커 등록 및 관리
+## 단계 14 — 큰 변동 감지 (이벤트 트리거)
+- [ ] 임계치 트리거: 최근 30분/1시간/24시간 수익률이 ±X% 초과 시 즉시 점검
+- [ ] ATR·볼린저 폭 기반 동적 변동성 급등 감지 (정적 % 외)
+- [ ] 트리거 발생 → 신호 재계산 → 필요 시 매매 → Telegram 알림 (단계 18 연동)
 
-## 데이터 확보
+## 단계 15 — 페이퍼 포트폴리오 (실거래 전 검증의 핵심) ⭐
+- [ ] **착수금 1,000만원(10,000,000 KRW)** 으로 시작
+- [ ] 자산 분류: **BTC / NYSE** 두 그룹으로 구분해 포지션·손익 관리
+- [ ] **거래 기록**: 조건 충족으로 매매 발생 시 그 **시점(timestamp)** 으로 전체 거래내역 저장
+  - 기록 필드: 일시, 분류(BTC/NYSE), 티커, 방향(BUY/SELL), 수량, 체결가, 거래금액
+  - **예상 수수료** 포함 (BTC=Upbit 수수료율, NYSE=KIS 수수료율 기준)
+  - 건별 **손익(PnL)** 및 누적 손익 기록
+- [ ] **TOTAL 집계**: 현금 + 평가액, 분류별/전체 손익, 누적 수익률을 한눈에
+- [ ] **거래내역 조회**: 최대 **100개**까지 표시, 100개 초과 시 **페이지네이션**
+- [ ] 상태 저장 포맷 정리 (기존 `paper_portfolio.json`/`paper_trades.csv` 확장 또는 신규 스키마)
 
-- [x] yfinance 연동
-- [x] 멀티 티커 지원 collector
-- [x] 2005년 이후 데이터 수집
-- [x] data/raw/ 에 티커별 CSV 저장
+## 단계 16 — 주문 실행 계층 (paper ↔ live 토글)
+- [ ] `broker/upbit.py` 위 주문 추상화: action(BUY/SELL/HOLD) → 시장가 주문 매핑
+- [ ] **paper/live 토글** (`UPBIT_LIVE=false` 기본): paper면 단계 15 가상 체결, live면 실주문
+- [ ] 포지션/상태 관리: 보유 추적, 중복 매수·연속 매도 방지
+- [ ] 최소 주문금액·수량 단위·수수료·슬리피지 반영
 
-## 데이터 검증
+## 단계 17 — 실시간 루프 스케줄러
+- [ ] `scheduler/live_runner.py`: APScheduler `interval` 30분 job (BTC 24/7)
+- [ ] 매 주기: 데이터 갱신 → 레짐/신호 계산 → 변동 감지 → 주문 판단 → 기록 → 알림
+- [ ] 레짐 신호 → 스케줄러 연동 (P11)
+- [ ] 상시 구동(launchd/systemd/nohup) 문서화, telegram_agent와 경합 방지
 
-- [x] 결측치 확인
-- [x] 거래일 확인
-- [x] 종가 데이터 정제
+## 단계 18 — Telegram 알림 (트레이딩 발생 시)
+- [ ] **트레이딩(페이퍼 포함)이 발생하면 즉시 Telegram 메시지** (분류/티커/방향/수량/체결가/수수료/손익/TOTAL 요약)
+- [ ] 실시간 레짐 전환 감지 시 알림 (P11)
+- [ ] 큰 변동 트리거 발생 시 알림 (단계 14 연동)
 
----
+## 단계 19 — 매일 08:30 결과 보고서
+- [ ] 매일 **아침 08:30** 총 거래에 대한 **간략 결과 보고서**를 Telegram으로 발송 (`daily_review.py` 패턴 재사용)
+- [ ] 포함 내용:
+  - 당일/누적 거래·손익·TOTAL 요약
+  - 장이 안 좋거나 적합 전략이 없었다면 **왜 부적합했는지** 설명
+  - **오버피팅되지 않는 선에서 개선 가능한지** 진단
+  - **현재 전략 유지 vs 변경** 어느 쪽이 나은지 판단/제안
+- [ ] 08:30 launchd/cron 트리거 등록 (기존 09:00 코드점검과 별개 잡)
 
-# Phase 3. 이동평균선 구현
+## 단계 20 — 안전장치 (실거래 전 필수)
+- [ ] 모의/실거래 토글 (`UPBIT_LIVE=false` 기본)
+- [ ] 일일 최대 손실 한도 / 최대 주문 횟수 제한
+- [ ] Kill switch (수동 중단 + 이상 감지 시 자동 정지)
+- [ ] 모든 주문/에러 로깅 + Telegram 즉시 알림
 
-## SMA 계산
-
-- [x] SMA20
-- [x] SMA50
-- [x] SMA100
-- [x] SMA200
-
-## 시각화
-
-- [x] 가격 + SMA20
-- [x] 가격 + SMA50
-- [x] 가격 + SMA200
-
----
-
-# Phase 4. 백테스트 엔진
-
-## 매수 조건
-
-- [x] 종가 > SMA200
-
-## 매도 조건
-
-- [x] 종가 < SMA200
-
-## 성과 분석
-
-- [x] 누적 수익률
-- [x] CAGR
-- [x] MDD
-- [x] Sharpe Ratio
-
-## 비교 분석
-
-- [x] Buy & Hold 수익률 계산
-- [x] 전략 수익률 계산
-- [x] 결과 리포트 생성
+## 단계 21 — BTC paper 검증 → 소액 실거래
+- [ ] BTC paper 모드 **1~2주 실시간 검증** (라이브 신호 ↔ 백테스트 신호 일치 확인)
+- [ ] **대시보드에 페이퍼 포트폴리오 반영**: BTC/NYSE 분류, 거래내역(100개+페이지네이션), 수수료·손익·TOTAL, 현재 레짐/포지션
+- [ ] 검증 통과 → BTC 소액 실거래 전환
 
 ---
 
-# Phase 5. 전략 개선
+## 단계 22 — 전략 고도화 (BTC 검증과 병행 가능)
+- [ ] 거래량 필터 (P5)
+- [ ] 변동성 필터 (P5)
 
-## 이동평균 조합
+## 단계 23 — 주식(NYSE: QQQ/SOXL/SOXS) 확장
+- [ ] KIS 개발자 계정 생성 / API Key 발급 / 모의투자 계좌 연결 (P6)
+- [ ] 주문 가능 금액 조회 (P6)
+- [ ] 동일 레짐/실시간 전략을 QQQ/SOXL/SOXS에 적용 (P11) — **장 시간 제약 반영** (BTC와 달리 24h 아님)
 
-- [x] SMA50 / SMA200 골든크로스
-- [x] SMA20 / SMA100
-- [x] SMA100 / SMA200
+## 단계 24 — 모멘텀 전략 확장
+- [ ] 월간 리밸런싱 (P9)
+- [ ] 분기 리밸런싱 (P9)
 
-## 필터 추가
-
-- [ ] 거래량 필터
-- [ ] 변동성 필터
-
-## 결과 비교
-
-- [x] 전략별 CAGR 비교
-- [x] 전략별 MDD 비교
-
----
-
-# Phase 6. 한국투자증권 (KIS) API 연동
-
-## Open API 준비
-
-- [ ] 개발자 계정 생성
-- [ ] API Key 발급
-- [ ] 모의투자 계좌 연결
-
-## 기능 구현
-
-- [x] 계좌 조회
-- [x] 잔고 조회
-- [ ] 주문 가능 금액 조회
-- [x] 해외주식 주문
+## 단계 25 — 운영
+- [ ] 성과 리포트 자동 생성 (P10)
+- [ ] 실거래 운영 (P10)
+- [ ] 1년 이상 운영 데이터 축적 (P10)
 
 ---
 
-# Phase 7. 가상매매
+## 전체 진행 현황
 
-## 신호 생성
-
-- [x] 일별 매수/매도 신호 생성
-
-## 주문 시뮬레이션
-
-- [x] 매수 로그 저장
-- [x] 매도 로그 저장
-- [x] 포트폴리오 추적
-
----
-
-# Phase 8. 자동매매
-
-## Scheduler
-
-- [x] 장 마감 후 데이터 수집
-- [x] 전략 계산
-- [x] 신호 생성
-
-## 주문 자동화
-
-- [x] 매수 주문
-- [x] 매도 주문
-
-## 알림
-
-- [x] Discord 알림
-- [x] Telegram 알림
-
----
-
-# Phase 9. 모멘텀 전략
-
-## 상대 모멘텀
-
-- [x] 최근 3개월 수익률
-- [x] 최근 6개월 수익률
-- [x] 최근 12개월 수익률
-
-## 종목 선정
-
-- [x] NASDAQ100 종목 수집
-- [x] 상위 종목 선정
-
-## 리밸런싱
-
-- [ ] 월간 리밸런싱
-- [ ] 분기 리밸런싱
-
----
-
-# Phase 10. 운영 및 대시보드
-
-## API
-
-- [x] FastAPI 구성
-
-## Dashboard
-
-- [x] Streamlit 구성
-- [x] 수익률 시각화
-- [x] MDD 시각화
-- [x] 현재 매매 신호 표시
-
-## 운영
-
-- [ ] 실거래 운영
-- [ ] 성과 리포트 자동 생성
-- [ ] 1년 이상 운영 데이터 축적
-
----
-
-# Milestone
-
-## M1
-
-- [x] QQQ 데이터 수집 완료
-- [x] SMA200 계산 완료
-- [x] 백테스트 완료
-
-## M2
-
-- [x] Buy & Hold 대비 성과 검증
-- [x] 전략 개선 완료
-
-## M3
-
-- [ ] KIS API 연동
-- [ ] 모의투자 자동매매 완료
-
-## M4
-
-- [ ] 실거래 자동매매 운영
-
-## M5
-
-- [ ] 모멘텀 전략 확장
-
----
-
-# Phase 11. 시장 레짐 적응 전략 + Walk-Forward 검증
-
-## 레짐 탐지
-
-- [x] ADX(14) 계산 (Wilder smoothing 수동 구현)
-- [x] SMA200 기준 상승장/하락장 판단
-- [x] confirm_days=3 whipsaw 방지 로직
-- [x] BULL / SIDEWAYS_UP / BEAR / SIDEWAYS_DOWN 4가지 레짐
-
-## 전략별 구현
-
-- [x] Volatility Breakout (Larry Williams, BULL 레짐)
-- [x] Grid / Mean-Reversion (Bollinger Band, SIDEWAYS 레짐)
-- [x] CASH (BEAR / SIDEWAYS_DOWN 레짐)
-
-## 자동 전략 스위처
-
-- [x] strategy/switcher.py — 레짐별 전략 자동 전환
-- [x] 백테스트 결과: CAGR 93%, MDD -32%, Sharpe 2.04 vs B&H Sharpe 0.86
-
-## Walk-Forward Analysis (WFA)
-
-- [x] backtest/wfa.py 구현
-- [x] 단순 분할 (2015-2021 학습 / 2022-2026 테스트)
-  - [x] 학습 CAGR 139.7%, 테스트 CAGR 32.1% (B&H 6.9%)
-- [x] 롤링 WFA (3년 학습 / 1년 테스트, 9 folds)
-  - [x] OOS 스티치 CAGR 18.3%, MDD -15.2%, Sharpe 1.18
-- [x] WFA 차트 저장 (report/btc_usd_wfa.png)
-
-## 다음 단계
-
-- [ ] 레짐 신호 → scheduler/runner.py 연동
-- [ ] QQQ / SOXL / SOXS에 동일 전략 적용
-- [ ] 실시간 레짐 감지 → Telegram 알림
+- ✅ **단계 1~11** — 데이터/백테스트/레짐 전략/WFA/대시보드/Telegram 자동화 ([HISTORY.md](HISTORY.md))
+- ⏳ **단계 12~21** — BTC 실시간 레짐 자동매매 (paper 먼저) ← **현재 최우선**
+- ⬜ **단계 22~23** — 전략 고도화 + 주식(NYSE) 확장
+- ⬜ **단계 24~25** — 모멘텀 확장 + 장기 운영
