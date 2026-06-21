@@ -16,6 +16,8 @@ class KISConfig:
 class UpbitConfig:
     access_key: str = os.environ.get("UPBIT_ACCESS_KEY", "")
     secret_key: str = os.environ.get("UPBIT_SECRET_KEY", "")
+    # 실거래 토글. 기본 false → 페이퍼(가상) 모드. true 일 때만 실주문.
+    live: bool = os.environ.get("UPBIT_LIVE", "false").lower() == "true"
 
 
 class DiscordConfig:
