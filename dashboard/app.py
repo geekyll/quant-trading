@@ -11,8 +11,25 @@ from backtest.paper_trade import _load_portfolio, get_portfolio_value, load_trad
 from backtest.wfa import optimize, stitch_oos, walk_forward
 from data.collector import fetch_all, load
 from data.universe import UNIVERSE
+from paper.portfolio import PaperPortfolio
 from strategy.signals import current_signals
 from strategy.switcher import run as switcher_run
+
+
+def _live_prices(positions: dict) -> dict:
+    """보유 종목 현재가. BTC는 Upbit, 주식은 일봉 종가, 실패 시 평단으로 폴백."""
+    prices = {}
+    for ticker, pos in positions.items():
+        try:
+            if pos["category"] == "BTC":
+                from data.intraday import current_price
+
+                prices[ticker] = current_price(ticker)
+            else:
+                prices[ticker] = float(load(ticker)["Close"].iloc[-1])
+        except Exception:
+            prices[ticker] = pos["avg_price"]
+    return prices
 
 st.set_page_config(page_title="Quant Trading Dashboard", page_icon="📈", layout="wide")
 
@@ -76,12 +93,13 @@ st.divider()
 # ──────────────────────────────────────────────
 # Tabs
 # ──────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs(
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
         "Signals & Portfolio",
         "Regime Backtest",
         "Walk-Forward",
         "Data",
+        "Paper Portfolio (Live)",
     ]
 )
 
@@ -330,3 +348,58 @@ with tab4:
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     else:
         st.warning("데이터 파일이 없습니다. Refresh를 클릭하세요.")
+
+
+# ──────────────────────────────────────────────
+# Tab 5 · Paper Portfolio (Live) — 단계 21
+# ──────────────────────────────────────────────
+with tab5:
+    st.caption(
+        "실시간 레짐/전략 페이퍼 트레이딩 현황. 착수금 1,000만원, BTC/NYSE 분류, "
+        "예상 수수료·건별/누적 손익 포함. 거래내역은 100개씩 페이지네이션."
+    )
+    st.divider()
+
+    pf = PaperPortfolio()
+    prices = _live_prices(pf.state["positions"])
+    s = pf.summary(prices)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("TOTAL", f"{s['total_value']:,.0f} KRW", f"{s['total_return_pct']:+.2f}%")
+    c2.metric("현금 (Cash)", f"{s['cash']:,.0f}")
+    c3.metric("평가액 (Holdings)", f"{s['holdings_value']:,.0f}")
+    c4.metric("실현/평가 손익", f"{s['realized_pnl']:,.0f} / {s['unrealized_pnl']:,.0f}")
+
+    st.markdown("**분류별 (BTC / NYSE)**")
+    if s["by_category"]:
+        cat_rows = [
+            {
+                "분류": cat,
+                "평가액": round(v["holdings_value"], 0),
+                "평가손익": round(v["unrealized_pnl"], 0),
+            }
+            for cat, v in s["by_category"].items()
+        ]
+        st.dataframe(pd.DataFrame(cat_rows), use_container_width=True, hide_index=True)
+    else:
+        st.info("보유 포지션 없음 (관망 중).")
+
+    st.divider()
+    st.subheader("거래내역 (Trade History)")
+    all_trades = PaperPortfolio.load_trades()
+    if all_trades.empty:
+        st.info("거래 내역이 없습니다.")
+    else:
+        total = len(all_trades)
+        total_pages = max(1, (total + 99) // 100)
+        page = 1
+        if total_pages > 1:
+            page = st.number_input(
+                f"페이지 (전체 {total}건 / {total_pages}페이지, 100건씩)",
+                min_value=1,
+                max_value=total_pages,
+                value=1,
+                step=1,
+            )
+        result = PaperPortfolio.trades_page(page=int(page), page_size=100)
+        st.dataframe(pd.DataFrame(result["trades"]), use_container_width=True, hide_index=True)
