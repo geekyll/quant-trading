@@ -12,6 +12,7 @@ Run (데모, paper):  uv run python -m broker.executor
 
 from __future__ import annotations
 
+from broker.safety import SafetyGuard
 from config import UpbitConfig
 from data.intraday import to_market
 from paper.portfolio import PaperPortfolio, categorize
@@ -24,6 +25,7 @@ class TradeExecutor:
         self.live = UpbitConfig.live if live is None else live
         self.allocation_krw = allocation_krw
         self.pf = PaperPortfolio()
+        self.guard = SafetyGuard()
         self.upbit = None
         if self.live:
             from broker.upbit import UpbitClient
@@ -56,11 +58,17 @@ class TradeExecutor:
     def execute(self, signal: dict, ticker: str, price: float) -> dict | None:
         """live_signal 결과(action)에 따라 체결. 거래가 없으면 None."""
         action = signal["action"]
+        if action == "HOLD":
+            return None
+        ok, reason = self.guard.can_trade(action)
+        if not ok:
+            print(f"  [safety] {action} 차단: {reason}")
+            return None
         if action == "BUY":
             return self.buy(ticker, price)
         if action == "SELL":
             return self.sell(ticker, price)
-        return None  # HOLD
+        return None
 
 
 if __name__ == "__main__":
